@@ -1,0 +1,20 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>正式日记隔离验收准备</title>
+<h1>正式日记隔离验收准备</h1><p>仅在隔离测试站点使用。将虚构测试账号绑定到浏览器私有文件系统 OPFS，以便验收真实日记页面；不替代用户目录，不进入生产构建。</p>
+<button id="prepare">绑定当前测试账号到 OPFS</button><a href="/journals">进入本地日记页面</a><p id="status" role="status"></p>
+<script type="module">
+import { createPinia, setActivePinia } from 'pinia'
+import { useAuthStore } from '/src/stores/auth.ts'
+import { directoryBindings } from '/src/services/journalDirectoryBindings.ts'
+setActivePinia(createPinia())
+const auth = useAuthStore()
+await auth.initialize()
+document.querySelector('#status').textContent = auth.user?.username || '请先在本测试站点登录虚构账号'
+document.querySelector('#prepare').onclick = async () => {
+  try {
+    if (!/^privacy_step[34]_/.test(auth.user?.username || '')) throw new Error('仅允许指定的虚构测试账号')
+    const root = await (await navigator.storage.getDirectory()).getDirectoryHandle('focusnest-step3-journals-' + auth.user.username, { create: true })
+    await directoryBindings.save(auth.user.id, root, new AbortController().signal)
+    document.querySelector('#status').textContent = '测试目录已绑定；可进入日记页进行真实页面验收。'
+  } catch (error) { document.querySelector('#status').textContent = error.message }
+}
+</script></html>

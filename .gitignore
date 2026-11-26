@@ -1,0 +1,40 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+node_modules/
+dist/
+*.tsbuildinfo
+.idea/
+.vscode/
+**/uploads/*
+!**/uploads/.gitkeep
+*.log
+*content-keyring*.json
+*.keyring.json
+
+# Local release bundles, database backups, and machine-specific working files.
+/releases/
+/.codex-tmp/
+/backups/
+*.sql
+*.dump
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+
+# Private key / certificate material belongs outside version control.
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local work records and screenshots may contain account or workspace data.
+/docs/SERVER_DEPLOYMENT_*.md
+/docs/screenshots/
+/docs/archive/

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><title>本地目录集成验收（隔离测试）</title>
+<style>body{font:16px/1.7 system-ui;max-width:1000px;margin:30px auto;padding:20px}button{margin:8px;padding:10px}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>
+<h1>目录存储集成验收</h1>
+<p>仅用于开发测试。使用浏览器私有文件系统 OPFS 检查真实文件句柄、IndexedDB 和版本保护，不读取用户磁盘目录，不发送网络内容。它不能替代用户文件夹授权验收。</p>
+<button id="account-a">切换测试账号 A</button><button id="account-b">切换测试账号 B</button>
+<button id="bind">绑定测试目录</button><button id="probe">创建测试文件并读回</button>
+<button id="edit">设置待保存输入</button><button id="external">模拟外部文件修改</button><button id="save">保存测试输入</button>
+<button id="unbind">解绑但保留文件</button><button id="inspect">检查测试文件仍存在</button>
+<pre id="state" aria-label="目录状态"></pre><p id="result" role="status"></p>
+<script type="module">
+import { createDirectoryController } from '/src/services/localJournalStorage.ts'
+import { directoryBindings } from '/src/services/journalDirectoryBindings.ts'
+let state, lastName = ''
+const root = await (await navigator.storage.getDirectory()).getDirectoryHandle('focusnest-step2-integration', { create: true })
+const controller = createDirectoryController({ bindings: directoryBindings, pick: async () => root }, value => {
+  state = value
+  if (value.probeName) lastName = value.probeName
+  document.querySelector('#state').textContent = JSON.stringify(value, null, 2)
+})
+const actions = {
+  'account-a': () => controller.configure('isolated-step2-integration-A'),
+  'account-b': () => controller.configure('isolated-step2-integration-B'),
+  bind: () => controller.choose(), probe: () => controller.probe(),
+  edit: () => controller.editProbe('页面中尚未保存的测试输入'),
+  save: () => controller.probe(true), unbind: () => controller.unbind(),
+  external: async () => { const writer = await (await root.getFileHandle(state.probeName)).createWritable(); await writer.write('外部版本，不能被静默覆盖'); await writer.close() },
+  inspect: async () => { document.querySelector('#result').textContent = `磁盘内容：${await (await (await root.getFileHandle(lastName)).getFile()).text()}` },
+}
+for (const [id, action] of Object.entries(actions)) document.querySelector(`#${id}`).onclick = async () => {
+  document.querySelector('#result').textContent = ''
+  try { await action() } catch (error) { document.querySelector('#result').textContent = error.message }
+}
+await controller.configure('isolated-step2-integration-A')
+</script></html>
