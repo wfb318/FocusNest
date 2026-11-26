@@ -19,7 +19,8 @@ const items = ref<Occurrence[]>([]), tasks = ref<Task[]>([]), taskTotal = ref(0)
 const busy = ref(false), loading = ref(false), error = ref(''), formError = ref(''), taskError = ref(''), notice = ref('')
 const editor = ref<HTMLDialogElement | null>(null), deleting = ref<HTMLDialogElement | null>(null)
 const selected = ref<Occurrence | null>(null)
-const form = reactive({ title: '', notes: '', weekday: 0, start: '09:00', end: '10:00', midnight: false, task_id: '', timer_enabled: false, remind_start: true, remind_end: true })
+const removalScope = ref<'single' | 'future'>('single')
+const form = reactive({ title: '', notes: '', weekday: 0, repeat_weekly: false, start: '09:00', end: '10:00', midnight: false, task_id: '', timer_enabled: false, remind_start: true, remind_end: true })
 const today = computed(() => dateInZone(runtime.now, zone.value))
 const currentWeek = computed(() => weekStart(today.value))
 const templates = ref<ScheduleTemplate[]>([]), appliedTemplate = ref<string | null>(null)
@@ -107,10 +108,10 @@ function open(item?: Occurrence, day?: string) {
   selected.value = item || null; formError.value = ''
   const date = day || (week.value === currentWeek.value ? today.value : week.value)
   Object.assign(form, item ? {
-    title: item.title, notes: item.notes, weekday: item.weekday,
+    title: item.title, notes: item.notes, weekday: item.weekday, repeat_weekly: item.repeats,
     start: minuteLabel(item.start_minute), end: item.end_minute === 1440 ? '23:59' : minuteLabel(item.end_minute), midnight: item.end_minute === 1440,
     task_id: item.task_id || '', timer_enabled: item.timer_enabled, remind_start: item.remind_start, remind_end: item.remind_end,
-  } : { title: '', notes: '', weekday: (new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7, start: '09:00', end: '10:00', midnight: false, task_id: '', timer_enabled: false, remind_start: true, remind_end: true })
+  } : { title: '', notes: '', weekday: (new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7, repeat_weekly: false, start: '09:00', end: '10:00', midnight: false, task_id: '', timer_enabled: false, remind_start: true, remind_end: true })
   editor.value?.showModal(); void loadTasks()
 }
 function fields(): ScheduleFields {
@@ -125,18 +126,19 @@ async function save() {
   try {
     const value = fields()
     if (selected.value) await editSchedule(selected.value.schedule_id, { ...value, scope: 'single', occurrence_date: selected.value.occurrence_date, revision: selected.value.revision, weekday: form.weekday })
-    else await createSchedule({ ...value, weekday: form.weekday, effective_from: chosenWeekday.value, timezone: zone.value, repeat_weekly: false })
-    editor.value?.close(); notice.value = '日程已保存。'; await load(); await runtime.sync()
+    else await createSchedule({ ...value, weekday: form.weekday, effective_from: chosenWeekday.value, timezone: zone.value, repeat_weekly: form.repeat_weekly })
+    editor.value?.close(); notice.value = selected.value ? '已保存本次调整，其他日期不变。' : form.repeat_weekly ? '每周重复日程已保存，从所选日期起每周同一天执行。' : '临时日程已保存，仅在所选日期执行。'; await load(); await runtime.sync()
   } catch (cause) { formError.value = cause instanceof Error && !('isAxiosError' in cause) ? cause.message : errorMessage(cause) }
   finally { busy.value = false }
 }
-function askRemove(item: Occurrence) { selected.value = item; formError.value = ''; deleting.value?.showModal() }
+function askRemove(item: Occurrence) { selected.value = item; removalScope.value = 'single'; formError.value = ''; deleting.value?.showModal() }
 async function remove() {
   if (!selected.value || busy.value) return
   busy.value = true; formError.value = ''
   try {
-    await removeSchedule(selected.value.schedule_id, { scope: 'single', occurrence_date: selected.value.occurrence_date, revision: selected.value.revision })
-    deleting.value?.close(); notice.value = '已跳过本次，其他周不变。'
+    const scope = selected.value.repeats ? removalScope.value : 'single'
+    await removeSchedule(selected.value.schedule_id, { scope, occurrence_date: selected.value.occurrence_date, revision: selected.value.revision })
+    deleting.value?.close(); notice.value = scope === 'future' ? '已永久移除此日程从所选日期起的全部重复，之前的历史记录保留。' : '已跳过本次，其他日期不变。'
     await load(); await runtime.sync()
   } catch (cause) { formError.value = errorMessage(cause) }
   finally { busy.value = false }
@@ -168,7 +170,7 @@ watch(today, () => { void checkReview() })
       <article v-for="item in items.filter(row => row.occurrence_date === day)" :key="item.key" class="panel schedule-card" :class="{ skipped: item.skipped, 'in-progress': isCurrent(item) }">
         <span class="schedule-time">{{ minuteLabel(item.start_minute) }}–{{ minuteLabel(item.end_minute) }}</span><h2>{{ item.title }}</h2>
         <p v-if="item.timezone !== zone" class="muted">{{ item.timezone }}</p><p v-if="item.notes" class="schedule-notes">{{ item.notes }}</p>
-        <p class="schedule-flags">{{ item.skipped ? '本次已跳过' : item.time_warning ? '时区跳转，时间无效' : isCurrent(item) ? '正在进行' : item.overridden ? '单次调整' : item.repeats ? '每周重复' : '当周日程' }}<span v-if="item.timer_enabled"> · 自动计时</span></p>
+        <p class="schedule-flags">{{ item.repeats ? '每周重复' : '临时日程' }}<span v-if="item.skipped"> · 本次已跳过</span><span v-else-if="item.time_warning"> · 时区跳转，时间无效</span><span v-else-if="isCurrent(item)"> · 正在进行</span><span v-else-if="item.overridden"> · 单次调整</span><span v-if="item.timer_enabled"> · 自动计时</span></p>
         <div v-if="editable(item)" class="schedule-actions"><button class="quiet" @click="open(item)">{{ item.skipped ? '恢复 / 编辑' : '编辑' }}</button><button class="quiet danger" @click="askRemove(item)">移除</button></div>
       </article>
     </section>
@@ -190,10 +192,15 @@ watch(today, () => { void checkReview() })
     </fieldset></form>
   </dialog>
   <dialog ref="editor" class="schedule-dialog" aria-labelledby="schedule-editor-title" @cancel="busy && $event.preventDefault()">
-    <h2 id="schedule-editor-title">{{ selected ? '编辑日程' : '添加当周日程' }}</h2>
+    <h2 id="schedule-editor-title">{{ selected ? '编辑日程' : '添加日程' }}</h2>
     <form @submit.prevent="save"><fieldset :disabled="busy">
       <label for="schedule-title">日程名称</label><input id="schedule-title" v-model="form.title" required maxlength="200" autofocus>
       <div class="schedule-form-grid"><div><label for="schedule-weekday">日期</label><select id="schedule-weekday" v-model.number="form.weekday" :disabled="!!selected"><option v-for="(day, i) in weekdays" :key="i" :value="i" :disabled="days[i]! < today">{{ day }} {{ days[i] }}</option></select></div></div>
+      <template v-if="!selected">
+        <label for="schedule-repeat">重复方式</label><select id="schedule-repeat" v-model="form.repeat_weekly"><option :value="false">临时日程（仅所选日期）</option><option :value="true">每周重复</option></select>
+        <p class="muted">{{ form.repeat_weekly ? `从 ${chosenWeekday} 起，每周同一天按此时段重复。` : `仅在 ${chosenWeekday} 执行一次，不自动重复。` }}</p>
+      </template>
+      <p v-else class="muted">{{ selected.repeats ? '每周重复日程，本次编辑只调整所选日期。' : '临时日程，只调整所选日期。' }}</p>
       <div class="schedule-form-grid"><div><label for="schedule-start">开始时间</label><input id="schedule-start" v-model="form.start" type="time" required></div><div><label for="schedule-end">结束时间</label><input id="schedule-end" v-model="form.end" type="time" :disabled="form.midnight" :required="!form.midnight"></div></div>
       <label class="check-label"><input v-model="form.midnight" type="checkbox">当天 24:00 结束</label>
       <p class="muted">时区：{{ selected?.timezone || zone }}。单项安排限当天，跨日请拆分。</p>
@@ -205,7 +212,17 @@ watch(today, () => { void checkReview() })
       <p v-if="formError" class="form-error" role="alert">{{ formError }}</p><div class="schedule-actions"><button class="primary-button" type="submit">{{ busy ? '保存中…' : '保存日程' }}</button><button type="button" class="quiet" @click="editor?.close()">返回</button></div>
     </fieldset></form>
   </dialog>
-  <dialog ref="deleting" class="schedule-dialog" aria-labelledby="schedule-remove-title" @cancel="busy && $event.preventDefault()"><h2 id="schedule-remove-title">移除“{{ selected?.title }}”</h2><p class="muted">只跳过这一次，可重新编辑恢复。已产生的计时记录保留。</p><p v-if="formError" class="form-error" role="alert">{{ formError }}</p><div class="schedule-actions"><button class="quiet danger" :disabled="busy" @click="remove">确认移除</button><button class="quiet" :disabled="busy" @click="deleting?.close()">返回</button></div></dialog>
+  <dialog ref="deleting" class="schedule-dialog" aria-labelledby="schedule-remove-title" @cancel="busy && $event.preventDefault()">
+    <h2 id="schedule-remove-title">移除“{{ selected?.title }}”</h2>
+    <template v-if="selected?.repeats">
+      <label for="schedule-remove-scope">移除范围</label><select id="schedule-remove-scope" v-model="removalScope" :disabled="busy"><option value="single">仅移除本次</option><option value="future">永久移除（本次及以后）</option></select>
+      <p v-if="removalScope === 'future'" class="muted">将从 {{ selected.occurrence_date }} 起停止此日程的所有重复；此前的历史安排和已产生的计时记录保留。之后不再自动恢复这条重复规则。</p>
+      <p v-else class="muted">只跳过 {{ selected.occurrence_date }} 这一次，可重新编辑恢复，其他周继续重复。</p>
+    </template>
+    <p v-else class="muted">此项为临时日程，只移除 {{ selected?.occurrence_date }} 这一次，可重新编辑恢复。已产生的计时记录保留。</p>
+    <p class="muted">此操作不修改已保存的模板；以后应用或自动沿用模板仍可能生成同名安排。</p>
+    <p v-if="formError" class="form-error" role="alert">{{ formError }}</p><div class="schedule-actions"><button class="quiet danger" :disabled="busy" @click="remove">{{ selected?.repeats && removalScope === 'future' ? '确认永久移除' : '确认移除本次' }}</button><button class="quiet" :disabled="busy" @click="deleting?.close()">返回</button></div>
+  </dialog>
 </template>
 
 <style scoped>

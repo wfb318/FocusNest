@@ -100,6 +100,22 @@ def test_repeat_single_edit_skip_restore_and_revision(account):
     assert not week(client, h)[1]["skipped"]
 
 
+@pytest.mark.parametrize("repeat_weekly", [False, True])
+def test_create_repeat_choice_controls_later_occurrences(account, repeat_weekly):
+    client, headers, _ = account
+    schedule_id = create(
+        client,
+        headers,
+        weekday=2,
+        effective_from="2026-11-04",
+        repeat_weekly=repeat_weekly,
+    )
+    rows = [item for item in week(client, headers) if item["schedule_id"] == schedule_id]
+    expected = ["2026-11-04", "2026-11-11", "2026-11-18"] if repeat_weekly else ["2026-11-04"]
+    assert [item["occurrence_date"] for item in rows] == expected
+    assert all(item["repeats"] is repeat_weekly for item in rows)
+
+
 def test_future_split_and_remove_keep_past(account):
     client, h, clock = account
     sid = create(client, h)

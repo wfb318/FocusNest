@@ -2,6 +2,8 @@
 
 **项目阶段：Phase 0、Phase 1 已完成，Phase 2 Tasks、Phase 3 Focus、Phase 4 Journal、Phase 5 Notes、Phase 6 Documents、Phase 7 Dashboard、Phase 8 Statistics 已实现。下一业务阶段为 Phase 9 Tools。**
 
+> 2026-11-26 用户授权的日程扩展已实现：创建时选择临时日程或每周重复，移除重复规则时选择单次或本次及以后；自动沿用模板保留额外新增的每周规则。无数据库结构变化，版本仍为 `0019_admin_and_presence`。本机验证通过，生产更新待执行。[代码清单与部署说明](docs/SCHEDULE_REPEAT_OPTIONS.md)。不推进 Phase 9，也不恢复已撤回的任务时分修改。
+
 > 2026-11-26 用户授权管理员扩展：已实现 user/admin 角色、可信服务器命令创建独立管理员、只读注册与用户统计、近 5 分钟会话去重在线、可见页面心跳、菜单及后端权限检查。私人正文保持原有用户归属校验。本机数据库迁移至 `0019_admin_and_presence` 并验证记录数保留；生产服务器更新和真实管理员创建尚待执行。[管理员代码与部署说明](docs/ADMINISTRATION.md)。此扩展不自动推进 Phase 9 Tools。
 
 > 2026-11-02 用户确认的扩展已实现：每周重复日程、单次/后续修改、固定起止时间计时、全局右侧状态与提醒设置。数据库迁移为 `0011_weekly_schedules`，实现契约与代码清单见 `docs/WEEKLY_SCHEDULES.md`。这记录 2026-11-02 的日程/专注扩展状态；2026-11-03 已继续完成 Phase 7 工作台，详见 `docs/PHASE7_DASHBOARD.md`。

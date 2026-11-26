@@ -220,6 +220,19 @@ def stage_week(
             )
         )
     retained = Counter()
+    managed_rules = set()
+    if automatic and rows:
+        managed_rules = set(
+            db.scalars(
+                select(ScheduleException.schedule_id)
+                .where(
+                    ScheduleException.schedule_id.in_({row.id for row, _, _ in rows}),
+                    ScheduleException.replaced.is_(True),
+                    ScheduleException.occurrence_date < start_day,
+                )
+                .distinct()
+            )
+        )
     # Keep changes already made in the target week when the carry is automatic.
     for row, day, exception in rows:
         if exception and exception.replaced:
@@ -228,7 +241,9 @@ def stage_week(
         if automatic:
             if not item.repeats:
                 continue
-            if exception or item.key in protected:
+            # A weekly rule added alongside a template must keep repeating.
+            # Only rules previously replaced by a template belong to its carry.
+            if exception or item.key in protected or row.id not in managed_rules:
                 retained[tuple(schedules.values(row).values()) + (row.weekday, row.timezone)] += 1
                 continue
         elif not upcoming(day, item.starts_at, item.timezone, now):

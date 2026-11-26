@@ -2,6 +2,8 @@
 
 **2026-11-26 管理员扩展已实现。** 支持独立管理员控制台创建命令、角色权限、用户列表、注册人数和近 5 分钟在线统计，数据库版本为 `0019_admin_and_presence`。 [管理员使用、文件清单和更新步骤](docs/ADMINISTRATION.md)
 
+**2026-11-26 日程创建与移除扩展已实现。** 创建时可选临时或每周重复；重复日程可单次跳过或从所选日期起永久停止。模板自动沿用保留额外新增的每周规则。 [使用、代码清单与服务器更新](docs/SCHEDULE_REPEAT_OPTIONS.md)
+
 Vue 3 + FastAPI + MySQL 个人智能工作台。已实现 **Phase 1 用户系统、Phase 2 任务系统、Phase 3 专注模块、Phase 4 日记模块、Phase 5 笔记模块、Phase 6 文档资料库、Phase 7 工作台与 Phase 8 统计**。统计支持专注趋势、模式分布、任务概况和日期筛选。 [统计模块使用与代码说明](docs/PHASE8_STATISTICS.md)
 
 ER 图、数据字典、索引和 SQL 练习见 [数据库结构与学习指南](docs/DATABASE_GUIDE.md)。

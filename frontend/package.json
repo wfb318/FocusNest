@@ -7,7 +7,7 @@
     "node": ">=20.19.0"
   },
   "scripts": {
-    "test": "node --test tests/markdown.test.mjs tests/folderTree.test.mjs tests/noteImport.test.mjs tests/backgroundMedia.test.mjs tests/appearanceStyle.test.mjs tests/scheduleTime.test.mjs tests/workspaceRuntime.test.mjs tests/reminders.test.mjs tests/journalStorage.test.mjs tests/localJournalStorage.test.mjs tests/localJournals.test.mjs tests/journalTransfer.test.mjs tests/authTransport.test.mjs tests/statistics.test.mjs tests/presence.test.mjs",
+    "test": "node --test tests/markdown.test.mjs tests/folderTree.test.mjs tests/noteImport.test.mjs tests/backgroundMedia.test.mjs tests/appearanceStyle.test.mjs tests/scheduleTime.test.mjs tests/scheduleOptions.test.mjs tests/workspaceRuntime.test.mjs tests/reminders.test.mjs tests/journalStorage.test.mjs tests/localJournalStorage.test.mjs tests/localJournals.test.mjs tests/journalTransfer.test.mjs tests/authTransport.test.mjs tests/statistics.test.mjs tests/presence.test.mjs",
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "typecheck": "vue-tsc --noEmit",

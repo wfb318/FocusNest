@@ -153,3 +153,42 @@ def test_template_owner_and_week_validation(account):
         == 409
     )
     assert not carry(client, other)
+
+
+def test_carry_keeps_added_weekly_rules_until_permanent_removal(account):
+    client, headers, clock = account
+    create(client, headers, title="Template baseline")
+    template = save(client, headers, FIRST, "Standard week")
+    assert apply(client, headers, FIRST, template).status_code == 200
+    schedule_id = create(
+        client,
+        headers,
+        title="Extra recurring appointment",
+        weekday=1,
+        effective_from="2026-11-03",
+        repeat_weekly=True,
+    )
+    clock[0] = datetime(2026, 11, 9, 0)
+    assert carry(client, headers)
+    rows = week(client, headers, SECOND, "2026-11-15")
+    assert [item["title"] for item in rows] == [
+        "Template baseline", "Extra recurring appointment"
+    ]
+    added = rows[1]
+    assert added["schedule_id"] == schedule_id and added["repeats"]
+    assert client.post(
+        f"{BASE}/{schedule_id}/remove",
+        headers=headers,
+        json={
+            "scope": "future",
+            "occurrence_date": added["occurrence_date"],
+            "revision": added["revision"],
+        },
+    ).status_code == 200
+    clock[0] = datetime(2026, 11, 16, 0)
+    assert carry(client, headers)
+    assert [item["title"] for item in week(client, headers, THIRD, "2026-11-22")] == [
+        "Template baseline"
+    ]
+    history = week(client, headers, FIRST, "2026-11-08")
+    assert any(item["schedule_id"] == schedule_id for item in history)
